@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeetMind · 会议智能体</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MeetMind">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🎙️</span>
+    <div>
+      <h1>MeetMind <span class="sub">会议智能体</span></h1>
+      <p class="tagline">实时转写 · AI 总结 · 思维导图 · 总结图</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button class="btn btn-ghost" id="btnSettings" title="API 配置">⚙️ API 配置</button>
+    <div class="status" id="statusPill">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">检测中…</span>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- 左侧：转写区 -->
+  <section class="panel transcript-panel">
+    <div class="panel-head">
+      <h2>📄 会议转写</h2>
+      <div class="rec-controls">
+        <button class="btn btn-rec" id="btnRecord">⏺ 开始实时转写</button>
+        <button class="btn btn-ghost" id="btnUpload" title="上传音频文件并由 LLM 转写">📁 音频转写</button>
+        <input type="file" id="fileAudio" accept="audio/*" hidden>
+      </div>
+    </div>
+
+    <div class="rec-info" id="recInfo" hidden>
+      <span class="rec-dot"></span> 正在转写 <span id="recTimer" class="timer">00:00</span>
+      <span class="interim" id="interimText"></span>
+    </div>
+
+    <textarea id="transcript" placeholder="点击「开始实时转写」通过麦克风实时识别发言；或直接把会议记录 / 转写文本粘贴到这里；也可以上传音频文件自动转写。"></textarea>
+
+    <div class="panel-foot">
+      <span class="stat" id="wordCount">0 字</span>
+      <div class="foot-actions">
+        <button class="btn btn-ghost" id="btnExport">💾 导出文本</button>
+        <button class="btn btn-ghost danger" id="btnClear">🗑 清空</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右侧：智能产出 -->
+  <section class="panel output-panel">
+    <div class="panel-head">
+      <h2>✨ 智能产出</h2>
+      <div class="gen-buttons">
+        <button class="btn btn-primary" data-gen="summary">📋 生成总结</button>
+        <button class="btn btn-primary" data-gen="mindmap">🧠 生成思维导图</button>
+        <button class="btn btn-primary" data-gen="image">🖼 生成总结图</button>
+        <button class="btn btn-primary btn-all" data-gen="all">⚡ 一键生成全部</button>
+      </div>
+    </div>
+
+    <div class="tabs" id="tabs" hidden>
+      <button class="tab active" data-tab="summary">总结纪要</button>
+      <button class="tab" data-tab="mindmap">思维导图</button>
+      <button class="tab" data-tab="image">总结图</button>
+    </div>
+
+    <div class="output-body">
+      <div class="empty" id="emptyState">
+        <div class="empty-icon">🤖</div>
+        <p>完成左侧转写后，点击上方按钮<br>让大模型生成会议纪要、思维导图与总结图</p>
+      </div>
+
+      <div class="tab-page" id="page-summary" hidden>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="btnCopySummary">📋 复制</button>
+          <button class="btn btn-ghost" id="btnDlSummary">💾 下载 Markdown</button>
+        </div>
+        <div class="markdown" id="summaryResult"></div>
+      </div>
+
+      <div class="tab-page" id="page-mindmap" hidden>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="btnDlMindmapSvg">💾 下载 SVG</button>
+          <button class="btn btn-ghost" id="btnDlMindmapPng">💾 下载 PNG</button>
+        </div>
+        <div class="mindmap-wrap" id="mindmapResult"><pre class="mermaid" id="mindmapPre"></pre></div>
+      </div>
+
+      <div class="tab-page" id="page-image" hidden>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="btnDlImagePng">💾 下载 PNG</button>
+          <button class="btn btn-ghost" id="btnDlImageSvg">💾 下载 SVG</button>
+        </div>
+        <div class="image-wrap" id="imageResult"></div>
+      </div>
+    </div>
+
+    <div class="loading" id="loading" hidden>
+      <div class="spinner"></div>
+      <p id="loadingText">大模型思考中…</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span id="envInfo"></span>
+</footer>
+
+<div class="toast" id="toast" hidden></div>
+
+<!-- API 配置弹窗 -->
+<div class="modal-mask" id="configModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>⚙️ API 配置</h3>
+      <button class="btn btn-ghost" id="btnCloseConfig">✕</button>
+    </div>
+    <p class="modal-tip">多智能体（转写 / 纪要 / 导图 / 总结图）全部由这里接入的 LLM API 驱动。配置保存在程序目录之外：<code id="configPath"></code></p>
+
+    <div class="field">
+      <label>接口地址 LLM_BASE_URL（OpenAI 兼容，到 /v1 为止）</label>
+      <input id="cfgBaseUrl" placeholder="https://api.deepseek.com/v1" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>API Key（保存后打码显示）</label>
+      <input id="cfgKey" type="password" placeholder="sk-..." autocomplete="off">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>对话模型 LLM_MODEL</label>
+        <input id="cfgModel" placeholder="deepseek-chat" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>转写模型 STT_MODEL（可选）</label>
+        <input id="cfgStt" placeholder="whisper-1" autocomplete="off">
+      </div>
+    </div>
+
+    <details class="env-paste">
+      <summary>📋 或直接粘贴整段 .env 内容（自动识别）</summary>
+      <textarea id="cfgEnvText" placeholder="LLM_BASE_URL=https://...&#10;LLM_API_KEY=sk-...&#10;LLM_MODEL=...&#10;STT_MODEL=whisper-1"></textarea>
+    </details>
+
+    <div class="modal-foot">
+      <span class="test-result" id="cfgTestResult"></span>
+      <button class="btn btn-ghost" id="btnTestConfig">🔌 测试连接</button>
+      <button class="btn btn-primary" id="btnSaveConfig">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
