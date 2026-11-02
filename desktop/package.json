@@ -1,0 +1,19 @@
+{
+  "name": "meeting-agent-desktop",
+  "productName": "MeetMind",
+  "version": "1.0.0",
+  "description": "MeetMind 会议智能体桌面版（内嵌后端，无需安装 Node.js）",
+  "main": "main.js",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  },
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^33.4.0",
+    "electron-builder": "^25.1.8"
+  }
+}
