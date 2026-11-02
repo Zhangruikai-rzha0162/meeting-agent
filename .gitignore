@@ -1,0 +1,5 @@
+node_modules/
+dist/
+app-src/
+*.log
+.env

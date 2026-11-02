@@ -1,0 +1,15 @@
+{
+  "name": "meeting-agent",
+  "version": "1.0.0",
+  "description": "MeetMind 会议智能体：实时转写、AI 总结、思维导图、总结图，全部由自有 LLM API 驱动",
+  "private": true,
+  "scripts": {
+    "dev": "node server.js",
+    "dev:lan": "node server.js --host 0.0.0.0",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  }
+}
