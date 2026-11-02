@@ -1,0 +1,15 @@
+<view class="page">
+  <view class="card">
+    <view class="field-label">后端服务地址</view>
+    <input class="input" value="{{backend}}" bindinput="onInput" placeholder="https://你的服务器域名" />
+    <view class="muted tip">电脑本机开发可用 http://localhost:7100；真机调试请填电脑局域网 IP；正式发布必须是 HTTPS 域名并在小程序后台配置 request 合法域名。</view>
+  </view>
+
+  <button class="btn btn-primary save" hover-class="btn-hover" bindtap="save">💾 保存</button>
+  <button class="btn btn-ghost" hover-class="btn-hover" bindtap="test">🔌 测试连接</button>
+
+  <view class="card status-card" wx:if="{{tested}}">
+    <view class="{{llmOk ? 'ok' : 'bad'}}">{{testResult}}</view>
+    <view class="muted" wx:if="{{model}}">模型：{{model}}　配置：{{llmConfigured ? '已配置' : '未配置'}}</view>
+  </view>
+</view>

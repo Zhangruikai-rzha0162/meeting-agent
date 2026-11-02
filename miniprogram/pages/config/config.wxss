@@ -1,0 +1,11 @@
+.page { padding: 24rpx; }
+.field-label { font-size: 26rpx; color: #8b98b8; margin-bottom: 12rpx; }
+.input {
+  background: #0b1122; border: 1rpx solid #232c47; border-radius: 12rpx;
+  padding: 18rpx 20rpx; font-size: 28rpx; color: #e2e8f0;
+}
+.tip { font-size: 23rpx; margin-top: 14rpx; line-height: 1.7; }
+.save { margin: 24rpx 0 16rpx; }
+.status-card { margin-top: 24rpx; display: flex; flex-direction: column; gap: 10rpx; font-size: 26rpx; }
+.ok { color: #34d399; }
+.bad { color: #f87171; }

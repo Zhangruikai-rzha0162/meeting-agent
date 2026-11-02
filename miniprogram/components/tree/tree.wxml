@@ -1,0 +1,10 @@
+<view class="tree-node" style="padding-left: {{depth > 0 ? 32 : 0}}rpx;">
+  <view class="node-row" bindtap="toggle">
+    <view class="node-dot" style="background: {{dotColor}};"></view>
+    <text class="node-name">{{node.name}}</text>
+    <text class="node-toggle" wx:if="{{node.children && node.children.length}}">{{expanded ? '▾' : '▸'}}</text>
+  </view>
+  <block wx:if="{{expanded}}">
+    <tree wx:for="{{node.children}}" wx:key="index" node="{{item}}" depth="{{depth + 1}}" />
+  </block>
+</view>

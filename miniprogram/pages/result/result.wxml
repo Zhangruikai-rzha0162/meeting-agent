@@ -1,0 +1,57 @@
+<view class="page">
+  <!-- 标签页 -->
+  <view class="tabs">
+    <view class="tab {{tab === 'summary' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="summary">📋 纪要</view>
+    <view class="tab {{tab === 'mindmap' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="mindmap">🧠 导图</view>
+    <view class="tab {{tab === 'image' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="image">🖼 总结图</view>
+  </view>
+
+  <!-- 加载态 -->
+  <view class="loading" wx:if="{{loading}}">
+    <view class="spinner"></view>
+    <text class="muted">{{loadingText}}</text>
+  </view>
+
+  <block wx:else>
+    <!-- 纪要 -->
+    <view wx:if="{{tab === 'summary'}}">
+      <block wx:if="{{summaryHtml}}">
+        <view class="result-actions">
+          <button class="mini-btn" hover-class="btn-hover" bindtap="copySummary">复制全文</button>
+        </view>
+        <view class="card markdown"><rich-text nodes="{{summaryHtml}}" /></view>
+      </block>
+      <view class="placeholder" wx:else>
+        <text class="placeholder-icon">📋</text>
+        <text class="muted">本次未生成纪要</text>
+      </view>
+    </view>
+
+    <!-- 导图 -->
+    <view wx:if="{{tab === 'mindmap'}}">
+      <block wx:if="{{tree}}">
+        <view class="card tree-card">
+          <tree node="{{tree}}" depth="{{0}}" />
+        </view>
+      </block>
+      <view class="placeholder" wx:else>
+        <text class="placeholder-icon">🧠</text>
+        <text class="muted">本次未生成思维导图</text>
+      </view>
+    </view>
+
+    <!-- 总结图 -->
+    <view wx:if="{{tab === 'image'}}">
+      <block wx:if="{{imageUrl}}">
+        <view class="result-actions">
+          <button class="mini-btn" hover-class="btn-hover" bindtap="saveImage">保存到相册</button>
+        </view>
+        <image class="summary-img" src="{{imageUrl}}" mode="widthFix" show-menu-by-longpress />
+      </block>
+      <view class="placeholder" wx:else>
+        <text class="placeholder-icon">🖼</text>
+        <text class="muted">本次未生成总结图</text>
+      </view>
+    </view>
+  </block>
+</view>

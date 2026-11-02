@@ -1,0 +1,60 @@
+<view class="page">
+  <!-- 头部：状态 + 设置 -->
+  <view class="header">
+    <view class="title-block">
+      <text class="title">🎙️ MeetMind</text>
+      <text class="subtitle">会议转写 · 智能总结</text>
+    </view>
+    <view class="header-right">
+      <view class="pill {{llmOk ? 'pill-ok' : 'pill-bad'}}">
+        <view class="pill-dot"></view>
+        <text>{{llmOk ? 'LLM 已连接' : 'LLM 未配置'}}</text>
+      </view>
+      <view class="gear" bindtap="goConfig">⚙️</view>
+    </view>
+  </view>
+
+  <!-- 实时转写控制 -->
+  <view class="card rec-card">
+    <button class="btn {{recording ? 'btn-recording' : ''}}" hover-class="btn-hover" bindtap="toggleRecord">
+      {{recording ? '⏹ 停止转写' : '⏺ 开始实时转写'}}
+    </button>
+    <view class="rec-status" wx:if="{{recording}}">
+      <view class="rec-dot"></view>
+      <text>正在转写 {{timerText}}</text>
+      <text class="interim" wx:if="{{interim}}">{{interim}}</text>
+    </view>
+    <button class="btn btn-ghost upload" hover-class="btn-hover" bindtap="uploadAudio" disabled="{{uploading}}">
+      {{uploading ? '音频转写中…' : '📁 音频文件转写'}}
+    </button>
+  </view>
+
+  <!-- 转写文本 -->
+  <view class="card text-card">
+    <textarea
+      class="transcript"
+      value="{{transcript}}"
+      bindinput="onInput"
+      auto-height
+      maxlength="-1"
+      placeholder="实时转写内容自动写入这里；也可以直接粘贴会议记录文本"
+    />
+    <view class="text-foot">
+      <text class="muted">{{transcript.length}} 字</text>
+      <view class="foot-btns">
+        <button class="mini-btn" hover-class="btn-hover" bindtap="copyText">复制</button>
+        <button class="mini-btn danger" hover-class="btn-hover" bindtap="clearText">清空</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 生成入口 -->
+  <view class="gen-card">
+    <button class="btn btn-all" hover-class="btn-hover" bindtap="runAll">⚡ 一键生成全部（总结 + 导图 + 总结图）</button>
+    <view class="gen-row">
+      <button class="btn btn-primary flex1" hover-class="btn-hover" bindtap="runOne" data-mode="summary">📋 总结</button>
+      <button class="btn btn-primary flex1" hover-class="btn-hover" bindtap="runOne" data-mode="mindmap">🧠 导图</button>
+      <button class="btn btn-primary flex1" hover-class="btn-hover" bindtap="runOne" data-mode="image">🖼 总结图</button>
+    </view>
+  </view>
+</view>

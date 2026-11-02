@@ -1,0 +1,31 @@
+.page { padding: 20rpx 24rpx 60rpx; }
+
+.tabs { display: flex; gap: 12rpx; margin-bottom: 20rpx; }
+.tab {
+  flex: 1; text-align: center; font-size: 27rpx; color: #8b98b8;
+  padding: 16rpx 0; border-radius: 14rpx; border: 1rpx solid #232c47; background: #131a2e;
+}
+.tab-active { color: #fff; background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; font-weight: 600; }
+
+.loading { display: flex; flex-direction: column; align-items: center; gap: 20rpx; padding: 140rpx 0; }
+.spinner {
+  width: 70rpx; height: 70rpx; border-radius: 50%;
+  border: 6rpx solid #6366f133; border-top-color: #6366f1;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.result-actions { margin-bottom: 16rpx; display: flex; gap: 12rpx; }
+.mini-btn {
+  font-size: 25rpx; padding: 10rpx 28rpx; line-height: 1.6;
+  background: #1a2340; color: #e2e8f0; border-radius: 10rpx; border: 1rpx solid #232c47;
+}
+.markdown { font-size: 28rpx; }
+.tree-card { padding: 12rpx 8rpx; }
+.summary-img { width: 100%; border-radius: 16rpx; }
+
+.placeholder {
+  display: flex; flex-direction: column; align-items: center; gap: 16rpx;
+  padding: 140rpx 0;
+}
+.placeholder-icon { font-size: 70rpx; }

@@ -1,0 +1,27 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/result/result",
+    "pages/config/config"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#0b1020",
+    "navigationBarTitleText": "MeetMind 会议智能体",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0b1020",
+    "backgroundTextStyle": "dark"
+  },
+  "permission": {
+    "scope.record": {
+      "desc": "用于会议实时语音转写"
+    }
+  },
+  "plugins": {
+    "WechatSI": {
+      "version": "0.3.5",
+      "provider": "wx069ba97219f66d99"
+    }
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
