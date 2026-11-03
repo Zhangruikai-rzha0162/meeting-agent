@@ -142,14 +142,27 @@
         <input id="cfgModel" placeholder="deepseek-chat" autocomplete="off">
       </div>
       <div class="field">
-        <label>转写模型 STT_MODEL（可选）</label>
+        <label>转写模型 STT_MODEL</label>
         <input id="cfgStt" placeholder="whisper-1" autocomplete="off">
       </div>
     </div>
 
+    <div class="field">
+      <label>转写接口 STT_BASE_URL（留空 = 跟随上面的 LLM 接口；DeepSeek 等不支持转写的服务请单独填写，如 Groq / OpenAI）</label>
+      <input id="cfgSttBase" placeholder="https://api.groq.com/openai/v1" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>转写 Key STT_API_KEY（留空 = 跟随上面的 Key）</label>
+      <input id="cfgSttKey" type="password" placeholder="默认同上面的 Key，可留空" autocomplete="off">
+    </div>
+    <div class="stt-help">
+      <button class="btn btn-ghost" id="btnGroqPreset">🎁 一键填入 Groq 免费转写</button>
+      <button class="btn btn-ghost" id="btnTestStt">🎙 测试转写</button>
+    </div>
+
     <details class="env-paste">
       <summary>📋 或直接粘贴整段 .env 内容（自动识别）</summary>
-      <textarea id="cfgEnvText" placeholder="LLM_BASE_URL=https://...&#10;LLM_API_KEY=sk-...&#10;LLM_MODEL=...&#10;STT_MODEL=whisper-1"></textarea>
+      <textarea id="cfgEnvText" placeholder="LLM_BASE_URL=https://...&#10;LLM_API_KEY=sk-...&#10;LLM_MODEL=...&#10;STT_MODEL=whisper-1&#10;STT_BASE_URL=（可选）&#10;STT_API_KEY=（可选）"></textarea>
     </details>
 
     <div class="modal-foot">

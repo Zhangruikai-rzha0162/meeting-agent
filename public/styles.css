@@ -195,6 +195,8 @@ body {
 }
 .field input:focus { border-color: var(--accent); }
 .field-row { display: flex; gap: 12px; }
+.stt-help { display: flex; gap: 8px; margin: -2px 0 12px; flex-wrap: wrap; }
+.stt-help .btn { font-size: 12.5px; padding: 6px 12px; }
 .env-paste { margin: 6px 0 12px; }
 .env-paste summary { font-size: 13px; color: var(--muted); cursor: pointer; margin-bottom: 8px; }
 .env-paste textarea {
