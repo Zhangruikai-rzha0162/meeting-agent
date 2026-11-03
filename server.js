@@ -137,19 +137,21 @@ app.post('/api/config', (req, res, next) => {
     const current = llm.snapshot();
     // 已有真实 Key 时，表单未改动 Key（仍是打码值）则保留原 Key
     const keepOldKey = apiKey === undefined || apiKey === '' || apiKey === current.apiKeyMasked;
+    // 空字符串视为"不修改"，避免空字段把已有配置覆盖掉
+    const clean = v => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
 
     let patch = {};
     if (envText && envText.trim()) {
       const parsed = parseEnvText(envText);
       patch = {
-        baseUrl: parsed.LLM_BASE_URL ?? baseUrl,
+        baseUrl: clean(parsed.LLM_BASE_URL) ?? clean(baseUrl),
         apiKey: parsed.LLM_API_KEY ?? apiKey,
-        model: parsed.LLM_MODEL ?? model,
-        sttModel: parsed.STT_MODEL ?? sttModel,
+        model: clean(parsed.LLM_MODEL) ?? clean(model),
+        sttModel: clean(parsed.STT_MODEL) ?? clean(sttModel),
       };
       if (keepOldKey && !parsed.LLM_API_KEY) delete patch.apiKey;
     } else {
-      patch = { baseUrl, model, sttModel };
+      patch = { baseUrl: clean(baseUrl), model: clean(model), sttModel: clean(sttModel) };
       if (!keepOldKey) patch.apiKey = apiKey;
     }
 
