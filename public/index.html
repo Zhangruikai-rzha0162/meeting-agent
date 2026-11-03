@@ -160,6 +160,19 @@
       <button class="btn btn-ghost" id="btnTestStt">🎙 测试转写</button>
     </div>
 
+    <div class="field">
+      <label>本地转写（可选）：勾选后由本机运行的 Whisper 大模型完成转写，不需要转写 API / Key，音频不出本机</label>
+      <div class="asr-opt">
+        <label class="chk"><input type="checkbox" id="cfgLocalAsr"> 启用本地转写</label>
+        <select id="cfgLocalModel">
+          <option value="Xenova/whisper-tiny">tiny · 最快，中文一般</option>
+          <option value="Xenova/whisper-base" selected>base · 推荐，均衡</option>
+          <option value="Xenova/whisper-small">small · 最准，较慢</option>
+        </select>
+        <button class="btn btn-ghost" id="btnLocalWarmup">⬇️ 预下载模型</button>
+      </div>
+    </div>
+
     <details class="env-paste">
       <summary>📋 或直接粘贴整段 .env 内容（自动识别）</summary>
       <textarea id="cfgEnvText" placeholder="LLM_BASE_URL=https://...&#10;LLM_API_KEY=sk-...&#10;LLM_MODEL=...&#10;STT_MODEL=whisper-1&#10;STT_BASE_URL=（可选）&#10;STT_API_KEY=（可选）"></textarea>
@@ -173,6 +186,7 @@
   </div>
 </div>
 
+<script src="local-asr.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

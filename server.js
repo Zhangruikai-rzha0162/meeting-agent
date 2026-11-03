@@ -264,6 +264,34 @@ app.post('/api/transcribe', express.raw({ type: ['audio/*'], limit: '50mb' }), a
   } catch (e) { next(e); }
 });
 
+// 本地转写模型代理：浏览器直连模型源可能失败（国内网络），由服务端代下载并转发
+// 路径形如 /api/asr-model/Xenova/whisper-base/resolve/main/config.json，支持 Range 断点续传
+const ASR_MODEL_SOURCES = ['https://hf-mirror.com', 'https://huggingface.co'];
+app.get(/^\/api\/asr-model\/(.+)$/, async (req, res) => {
+  try {
+    const rel = req.params[0];
+    if (!/^[\w\-./]+$/.test(rel)) return res.status(400).json({ error: '非法的模型路径' });
+    const headers = {};
+    if (req.headers.range) headers.Range = req.headers.range;
+    let lastErr = null;
+    for (const base of ASR_MODEL_SOURCES) {
+      try {
+        const r = await fetch(`${base}/${rel}`, { headers, redirect: 'follow' });
+        if (!r.ok && r.status !== 206) continue;
+        res.status(r.status);
+        for (const h of ['content-type', 'content-length', 'accept-ranges', 'content-range', 'etag']) {
+          const v = r.headers.get(h);
+          if (v) res.set(h, v);
+        }
+        const { Readable } = require('stream');
+        Readable.fromWeb(r.body).pipe(res);
+        return;
+      } catch (e) { lastErr = e; /* 尝试下一个源 */ }
+    }
+    res.status(502).json({ error: '模型源全部不可用，请检查网络后重试' + (lastErr ? `（${lastErr.message || lastErr}）` : '') });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.use((err, req, res, next) => {
   console.error('[MeetMind] 错误:', err.message);
   res.status(err.status || 500).json({ error: err.message || '服务器内部错误' });
