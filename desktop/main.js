@@ -34,6 +34,13 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // 允许麦克风权限请求，保证实时转写可用
+  const { session } = require('electron');
+  session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => {
+    callback(['media', 'audioCapture', 'videoCapture', 'speaker-selection'].includes(permission));
+  });
+  session.defaultSession.setPermissionCheckHandler((wc, permission) =>
+    ['media', 'audioCapture', 'videoCapture', 'speaker-selection'].includes(permission));
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
