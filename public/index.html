@@ -169,6 +169,11 @@
           <option value="Xenova/whisper-base" selected>base · 推荐，均衡</option>
           <option value="Xenova/whisper-small">small · 最准，较慢</option>
         </select>
+        <select id="cfgLocalLang" title="转写语言：自动检测在中文场景容易误判成英文，会议为中文时建议选中文">
+          <option value="zh" selected>识别语言 · 中文</option>
+          <option value="en">识别语言 · 英文</option>
+          <option value="auto">识别语言 · 自动检测</option>
+        </select>
         <button class="btn btn-ghost" id="btnLocalWarmup">⬇️ 预下载模型</button>
       </div>
     </div>
@@ -186,6 +191,7 @@
   </div>
 </div>
 
+<script src="vendor/opencc-full.js"></script>
 <script src="local-asr.js"></script>
 <script src="app.js"></script>
 </body>

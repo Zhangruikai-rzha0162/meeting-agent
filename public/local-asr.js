@@ -101,6 +101,17 @@ const LocalASR = (() => {
     }
   }
 
+  /* Whisper 对中文输出繁体（台湾习惯），用本地 OpenCC 字典转成简体中文。
+   * 字典随程序自带（vendor/opencc-full.js），纯本地转换，不联网。 */
+  let t2cnConverter = null;
+  function toSimplified(text) {
+    if (t2cnConverter === null && window.OpenCC) {
+      try { t2cnConverter = window.OpenCC.Converter({ from: 'twp', to: 'cn' }); }
+      catch { t2cnConverter = false; }
+    }
+    return t2cnConverter ? t2cnConverter(text) : text;
+  }
+
   /* 任意音频 Blob → 16kHz 单声道 Float32Array（Whisper 标准输入） */
   async function decodeTo16kMono(blob) {
     const ab = await blob.arrayBuffer();
@@ -121,20 +132,30 @@ const LocalASR = (() => {
 
   /**
    * 转写一段音频
-   * @param {Blob} blob  录音分片或音频文件
+   * @param {Blob}   blob     录音分片或音频文件
    * @param {string} modelId  见 MODELS 键名
+   * @param {object} opts     { language: 'auto'|'zh'|'en' } —— 不指定语言时 Whisper 自动检测，
+   *                          中文音频可能被误判成英文导致输出全英；指定 'zh' 强制按中文识别
    * @returns {Promise<string>} 识别出的文字（可能为空串）
    */
-  async function transcribe(blob, modelId) {
+  async function transcribe(blob, modelId, opts = {}) {
     const t = await ensure(modelId);
     const audio = await decodeTo16kMono(blob);
     if (!audio.length) return '';
-    const out = await t(audio, {
+    const genOpts = {
       chunk_length_s: 30,
       stride_length_s: 5,
       return_timestamps: false,
-    });
-    return (out && out.text ? out.text : '').trim();
+    };
+    const lang = (opts.language || 'auto').toLowerCase();
+    if (lang === 'zh' || lang === 'en') {
+      genOpts.language = lang === 'zh' ? 'zh' : 'english';
+      genOpts.task = 'transcribe';   // 显式指定"转写"而非"翻译成英文"
+    }
+    const out = await t(audio, genOpts);
+    let text = (out && out.text ? out.text : '').trim();
+    if (lang === 'zh') text = toSimplified(text);   // Whisper 中文输出繁体 → 转简体
+    return text;
   }
 
   /** 主动释放显存/内存（切换模型时调用） */

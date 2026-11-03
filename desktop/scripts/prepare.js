@@ -30,6 +30,7 @@ const VENDOR_FILES = {
   'transformers.min.js': 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.web.min.js',
   'ort-wasm-simd-threaded.jsep.mjs': 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/ort-wasm-simd-threaded.jsep.mjs',
   'ort-wasm-simd-threaded.jsep.wasm': 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/ort-wasm-simd-threaded.jsep.wasm',
+  'opencc-full.js': 'https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js',
 };
 
 async function ensureVendor() {
