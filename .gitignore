@@ -3,3 +3,5 @@ dist/
 app-src/
 *.log
 .env
+# 本地转写推理库（约 22MB，scripts/prepare.js 会自动下载）
+public/vendor/
