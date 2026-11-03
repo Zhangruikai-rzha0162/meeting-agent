@@ -207,7 +207,7 @@ body {
 .toast {
   position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
   background: #1a2340; border: 1px solid #3b4a7a; color: var(--text);
-  padding: 11px 22px; border-radius: 12px; font-size: 14px; z-index: 99;
+  padding: 11px 22px; border-radius: 12px; font-size: 14px; z-index: 40;
   box-shadow: 0 10px 30px #00000066; animation: toastIn .25s;
 }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } }

@@ -18,7 +18,7 @@ async function checkHealth() {
     const r = await fetch('/api/health');
     const d = await r.json();
     const pill = $('#statusPill');
-    if (d.llmConfigured) {
+    if (d.configured && d.keyValid) {
       pill.className = 'status ok';
       $('#statusText').textContent = `LLM 已连接 · ${d.model}`;
     } else {
@@ -377,11 +377,11 @@ async function openConfig() {
   try {
     const r = await fetch('/api/config');
     const d = await r.json();
-    $('#cfgBaseUrl').value = d.baseUrl || '';
+    $('#cfgBaseUrl').value = d.baseUrl || 'https://api.deepseek.com/v1';   // 未配置时预填默认值，只需填 Key
     $('#cfgKey').value = d.apiKeyMasked || '';   // 打码值，未修改则保留原 Key
     $('#cfgKey').placeholder = d.apiKeyMasked ? '已配置（显示打码），留空保持不变' : 'sk-...';
-    $('#cfgModel').value = d.model || '';
-    $('#cfgStt').value = d.sttModel || '';
+    $('#cfgModel').value = d.model || 'deepseek-chat';
+    $('#cfgStt').value = d.sttModel || 'whisper-1';
     $('#cfgEnvText').value = '';
     $('#configPath').textContent = d.envFile || '（尚未创建，将保存到 ~/.meetmind/.env）';
   } catch {
@@ -389,6 +389,8 @@ async function openConfig() {
   }
   cfgTestResult.textContent = '';
   cfgTestResult.className = 'test-result';
+  toastEl.hidden = true;          // 避免提示条挡住弹窗按钮
+  clearTimeout(toastTimer);
   configModal.hidden = false;
 }
 $('#btnSettings').addEventListener('click', openConfig);
