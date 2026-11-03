@@ -12,6 +12,9 @@
   --yellow: #fbbf24;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+/* hidden 属性必须始终生效：.modal-mask / .tabs / .rec-info / .loading 等都设了 display，
+   会覆盖浏览器默认的 [hidden] 规则，导致弹窗、加载层等"点了关闭却还在屏幕上" */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
