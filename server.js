@@ -64,6 +64,8 @@ function applyEnvFile(file) {
     apiKey: process.env.LLM_API_KEY,
     model: process.env.LLM_MODEL,
     sttModel: process.env.STT_MODEL,
+    sttBaseUrl: process.env.STT_BASE_URL,
+    sttApiKey: process.env.STT_API_KEY,
   });
 }
 applyEnvFile(envFile);
@@ -98,7 +100,9 @@ function parseEnvText(text) {
   return out;
 }
 
-function writeEnvFile(file, snap, apiKey) {
+function writeEnvFile(file, snap, apiKey, sttApiKey = '') {
+  const sttUrlLine = snap.sttBaseUrl ? `STT_BASE_URL=${snap.sttBaseUrl}` : '# STT_BASE_URL=（留空则跟随 LLM_BASE_URL）';
+  const sttKeyLine = sttApiKey ? `STT_API_KEY=${sttApiKey}` : '# STT_API_KEY=（留空则跟随 LLM_API_KEY）';
   const content = [
     '# ===== MeetMind 会议智能体外部配置（程序目录之外）=====',
     '# 本文件由应用内 ⚙️ 设置写入，也可手动编辑后重启服务',
@@ -108,8 +112,10 @@ function writeEnvFile(file, snap, apiKey) {
     `LLM_API_KEY=${apiKey}`,
     `# 对话模型（总结 / 思维导图 / 总结图）`,
     `LLM_MODEL=${snap.model}`,
-    `# 音频转写模型（可选，服务需支持 /audio/transcriptions）`,
+    `# 音频转写：模型 / 接口地址 / Key（接口与 Key 留空 = 跟随上面的 LLM 配置）`,
     `STT_MODEL=${snap.sttModel}`,
+    sttUrlLine,
+    sttKeyLine,
     '',
   ].join('\n');
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -133,12 +139,15 @@ app.get('/api/config', (req, res) => {
 // 保存配置：支持字段或整段 .env 文本；写回外部 .env 并热生效
 app.post('/api/config', (req, res, next) => {
   try {
-    const { baseUrl, apiKey, model, sttModel, envText } = req.body || {};
+    const { baseUrl, apiKey, model, sttModel, sttBaseUrl, sttApiKey, envText } = req.body || {};
     const current = llm.snapshot();
     // 已有真实 Key 时，表单未改动 Key（仍是打码值）则保留原 Key
     const keepOldKey = apiKey === undefined || apiKey === '' || apiKey === current.apiKeyMasked;
+    const keepOldSttKey = sttApiKey === undefined || sttApiKey === '' || sttApiKey === current.sttApiKeyMasked;
     // 空字符串视为"不修改"，避免空字段把已有配置覆盖掉
     const clean = v => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+    // STT 地址：空串 = 恢复"跟随 LLM"
+    const cleanSttUrl = v => (v === undefined ? undefined : String(v).trim().replace(/\/+$/, ''));
 
     let patch = {};
     if (envText && envText.trim()) {
@@ -148,22 +157,32 @@ app.post('/api/config', (req, res, next) => {
         apiKey: parsed.LLM_API_KEY ?? apiKey,
         model: clean(parsed.LLM_MODEL) ?? clean(model),
         sttModel: clean(parsed.STT_MODEL) ?? clean(sttModel),
+        sttBaseUrl: cleanSttUrl(parsed.STT_BASE_URL ?? sttBaseUrl),
+        sttApiKey: parsed.STT_API_KEY ?? sttApiKey,
       };
       if (keepOldKey && !parsed.LLM_API_KEY) delete patch.apiKey;
+      if (keepOldSttKey && !parsed.STT_API_KEY) delete patch.sttApiKey;
     } else {
-      patch = { baseUrl: clean(baseUrl), model: clean(model), sttModel: clean(sttModel) };
+      patch = {
+        baseUrl: clean(baseUrl),
+        model: clean(model),
+        sttModel: clean(sttModel),
+        sttBaseUrl: cleanSttUrl(sttBaseUrl),
+      };
       if (!keepOldKey) patch.apiKey = apiKey;
+      if (!keepOldSttKey) patch.sttApiKey = sttApiKey;
     }
 
     llm.configure(patch);
     const snap = llm.snapshot();
-    // 只有拿到真实 Key（非打码）时才落盘
+    const keys = llm.rawKeys();
+    // 落盘：优先本次提交的真实 Key，否则沿用内存中的原 Key（允许仅修改 STT 配置也能持久化）
     const keyToWrite = envText && parseEnvText(envText).LLM_API_KEY
       ? parseEnvText(envText).LLM_API_KEY
-      : (patch.apiKey !== undefined ? patch.apiKey : null);
+      : (patch.apiKey !== undefined ? patch.apiKey : keys.apiKey);
     if (keyToWrite && /^[\x21-\x7e]+$/.test(keyToWrite)) {
       const target = envFile || DEFAULT_ENV_PATH;
-      writeEnvFile(target, snap, keyToWrite);
+      writeEnvFile(target, snap, keyToWrite, keys.sttApiKey);
       envFile = target;
     } else if (!envFile && snap.configured) {
       // 字段方式且未提供 Key 时不写盘，提示用户
