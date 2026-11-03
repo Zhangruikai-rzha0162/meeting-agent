@@ -43,14 +43,15 @@ function updateCount() {
 transcriptEl.addEventListener('input', updateCount);
 
 /* ---------- 本地转写模式（LocalASR，音频不出本机） ---------- */
-const LS_LOCAL = 'mm_local_asr', LS_MODEL = 'mm_local_model';
+const LS_LOCAL = 'mm_local_asr', LS_MODEL = 'mm_local_model', LS_LANG = 'mm_local_lang';
 function isLocalAsr() { return localStorage.getItem(LS_LOCAL) === '1'; }
 function localModel() { return localStorage.getItem(LS_MODEL) || 'Xenova/whisper-base'; }
+function localLang() { return localStorage.getItem(LS_LANG) || 'zh'; }
 window.addEventListener('local-asr-status', e => toast('🧠 ' + e.detail, 3200));
 
 /* 统一转写入口：本地模式走本机 Whisper 大模型，否则走 ⚙️ 配置的转写 API */
 async function transcribeAny(blob, ext = 'webm') {
-  if (isLocalAsr()) return LocalASR.transcribe(blob, localModel());
+  if (isLocalAsr()) return LocalASR.transcribe(blob, localModel(), { language: localLang() });
   return transcribeSegment(blob);
 }
 
@@ -490,6 +491,7 @@ async function openConfig() {
     // 本地转写模式
     $('#cfgLocalAsr').checked = isLocalAsr();
     $('#cfgLocalModel').value = localModel();
+    $('#cfgLocalLang').value = localLang();
     $('#cfgEnvText').value = '';
     $('#configPath').textContent = d.envFile || '（尚未创建，将保存到 ~/.meetmind/.env）';
   } catch {
@@ -527,6 +529,7 @@ async function saveConfig({ silent = false } = {}) {
   // 本地转写偏好存浏览器本地（与外部 .env 无关）
   localStorage.setItem(LS_LOCAL, $('#cfgLocalAsr').checked ? '1' : '0');
   localStorage.setItem(LS_MODEL, $('#cfgLocalModel').value);
+  localStorage.setItem(LS_LANG, $('#cfgLocalLang').value);
   if (!silent) {
     configModal.hidden = true;
     toast('✔ 配置已保存到外部 .env 并即时生效');
