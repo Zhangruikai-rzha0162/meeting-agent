@@ -42,12 +42,78 @@ function updateCount() {
 }
 transcriptEl.addEventListener('input', updateCount);
 
-/* ---------- 实时转写（Web Speech API） ---------- */
+/* ---------- 实时转写 ----------
+ * 主引擎：MediaRecorder 每 6 秒切一片 → POST /api/transcribe（走 ⚙️ 中配置的 STT 接口）
+ * 回退：浏览器内置 Web Speech（免费，但依赖 Google 服务，国内网络通常不可用）
+ */
 let recognition = null, recording = false, recSeconds = 0, recTimerId = null;
 let finalBuffer = '';
+let mediaStream = null, recorder = null;
+let segQueue = [], segWorking = false, segCount = 0, segErrors = 0;
 
 function speechSupported() {
   return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+}
+
+function appendTranscript(text) {
+  if (!text || !text.trim()) return;
+  transcriptEl.value = (transcriptEl.value ? transcriptEl.value.replace(/\n?$/, '\n') : '') + text.trim() + '\n';
+  updateCount();
+  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+}
+
+/* 分片转写工作线程：串行消费队列，保证段落顺序 */
+async function segmentWorker() {
+  if (segWorking) return;
+  segWorking = true;
+  while (segQueue.length) {
+    const blob = segQueue.shift();
+    segCount++;
+    if (recording) $('#interimText').textContent = `正在转写第 ${segCount} 段…`;
+    try {
+      const text = await transcribeSegment(blob);
+      if (text) appendTranscript(text);
+      segErrors = 0;
+    } catch (err) {
+      segErrors++;
+      if (recording) $('#interimText').textContent = `第 ${segCount} 段转写失败，已跳过`;
+      if (segErrors === 1) toast('转写出错：' + err.message, 5200);
+      if (segErrors >= 3 && recording) {
+        toast('连续 3 段转写失败，已停止。请在 ⚙️ 检查「转写接口」配置（推荐 Groq 免费额度）', 6500);
+        stopRecording();
+      }
+    }
+  }
+  segWorking = false;
+  if (recording) $('#interimText').textContent = '聆听中…（每 6 秒自动转写一段）';
+}
+
+function transcribeSegment(blob) {
+  return (async () => {
+    const r = await fetch('/api/transcribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/webm', 'x-audio-ext': 'webm' },
+      body: blob,
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || '转写失败');
+    return d.text || '';
+  })();
+}
+
+/* 主引擎：MediaRecorder 定时切片 */
+async function startApiRecording() {
+  mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+  recorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : undefined);
+  recorder.ondataavailable = e => {
+    if (e.data && e.data.size) { segQueue.push(e.data); segmentWorker(); }
+  };
+  recorder.onerror = e => {
+    toast('录音出错：' + ((e.error && e.error.name) || e.error || '未知错误'), 4000);
+    stopRecording();
+  };
+  recorder.start(6000);   // 每 6 秒产出一个分片
 }
 
 function startRecognition() {
@@ -90,28 +156,56 @@ function startRecognition() {
 function fmtTime(s) {
   return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 }
-function startRecording() {
-  if (!speechSupported()) {
-    toast('当前浏览器不支持语音识别，可改用 Chrome/Edge，或粘贴文本、上传音频', 4500);
+function resetRecUI() {
+  $('#recInfo').hidden = true;
+  $('#interimText').textContent = '';
+  $('#btnRecord').textContent = '⏺ 开始实时转写';
+  $('#btnRecord').classList.remove('recording');
+}
+
+async function startRecording() {
+  const apiRecAvailable = Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
+  if (!apiRecAvailable && !speechSupported()) {
+    toast('当前环境不支持录音转写，可粘贴文本或上传音频文件', 4500);
     return;
   }
   recording = true;
   recSeconds = 0;
+  segCount = 0; segErrors = 0; segQueue = [];
   $('#recTimer').textContent = '00:00';
   $('#recInfo').hidden = false;
   $('#btnRecord').textContent = '⏹ 停止转写';
   $('#btnRecord').classList.add('recording');
   recTimerId = setInterval(() => { recSeconds++; $('#recTimer').textContent = fmtTime(recSeconds); }, 1000);
+
+  if (apiRecAvailable) {
+    try {
+      await startApiRecording();
+      $('#interimText').textContent = '聆听中…（每 6 秒自动转写一段）';
+      return;
+    } catch (e) {
+      if (!speechSupported()) {
+        toast('无法打开麦克风：' + e.message + '（请在系统设置中允许麦克风访问）', 5000);
+        stopRecording();
+        return;
+      }
+      toast('麦克风录音不可用，改用浏览器内置识别（国内网络下可能不稳定）', 4200);
+    }
+  }
+  // 回退：浏览器内置 Web Speech
   startRecognition();
 }
+
 function stopRecording() {
   recording = false;
   clearInterval(recTimerId);
+  if (recorder && recorder.state !== 'inactive') {
+    try { recorder.stop(); } catch {}   // stop 会触发最后一个分片的 dataavailable，由工作线程排空
+    recorder = null;
+  }
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
   if (recognition) { try { recognition.stop(); } catch {} recognition = null; }
-  $('#recInfo').hidden = true;
-  $('#interimText').textContent = '';
-  $('#btnRecord').textContent = '⏺ 开始实时转写';
-  $('#btnRecord').classList.remove('recording');
+  resetRecUI();
 }
 $('#btnRecord').addEventListener('click', () => (recording ? stopRecording() : startRecording()));
 
@@ -382,6 +476,10 @@ async function openConfig() {
     $('#cfgKey').placeholder = d.apiKeyMasked ? '已配置（显示打码），留空保持不变' : 'sk-...';
     $('#cfgModel').value = d.model || 'deepseek-chat';
     $('#cfgStt').value = d.sttModel || 'whisper-1';
+    // 转写独立配置（留空 = 跟随上面的 LLM 配置）
+    $('#cfgSttBase').value = d.sttBaseUrl || '';
+    $('#cfgSttKey').value = d.sttApiKeyMasked || '';
+    $('#cfgSttKey').placeholder = d.sttApiKeyMasked ? '已配置（显示打码），留空保持不变' : '默认同上面的 Key，可留空';
     $('#cfgEnvText').value = '';
     $('#configPath').textContent = d.envFile || '（尚未创建，将保存到 ~/.meetmind/.env）';
   } catch {
@@ -405,6 +503,8 @@ async function saveConfig({ silent = false } = {}) {
     apiKey: $('#cfgKey').value.trim(),
     model: $('#cfgModel').value.trim(),
     sttModel: $('#cfgStt').value.trim(),
+    sttBaseUrl: $('#cfgSttBase').value.trim(),
+    sttApiKey: $('#cfgSttKey').value.trim(),
     envText: $('#cfgEnvText').value,
   };
   const r = await fetch('/api/config', {
@@ -447,9 +547,53 @@ $('#btnSaveConfig').addEventListener('click', async () => {
   catch (err) { toast('保存失败：' + err.message, 5000); }
 });
 
+/* Groq 免费转写预设：接口 + 模型一键填入，Key 由用户在 console.groq.com 免费申请 */
+$('#btnGroqPreset').addEventListener('click', () => {
+  $('#cfgSttBase').value = 'https://api.groq.com/openai/v1';
+  $('#cfgStt').value = 'whisper-large-v3-turbo';
+  $('#cfgSttKey').placeholder = '填入 Groq Key（console.groq.com 免费申请）';
+  cfgTestResult.textContent = '已填入 Groq 免费转写接口与模型，请在「转写 Key」处粘贴 Groq Key 后保存';
+  cfgTestResult.className = 'test-result';
+  $('#cfgSttKey').focus();
+});
+
+/* 生成 1 秒正弦波测试 WAV，验证转写接口真实可用 */
+function makeTestWav() {
+  const sr = 16000, n = sr;
+  const buf = new ArrayBuffer(44 + n * 2);
+  const v = new DataView(buf);
+  const wstr = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  wstr(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); wstr(8, 'WAVE'); wstr(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  wstr(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(Math.sin(i / 18) * 10000), true);
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+$('#btnTestStt').addEventListener('click', async () => {
+  cfgTestResult.textContent = '保存并测试转写中…';
+  cfgTestResult.className = 'test-result';
+  try {
+    await saveConfig({ silent: true });   // 先落盘热生效，确保用最新 STT 配置
+    const r = await fetch('/api/transcribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/wav', 'x-audio-ext': 'wav' },
+      body: makeTestWav(),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || '转写失败');
+    cfgTestResult.textContent = `✔ 转写接口可用 · 模型 ${d.model || ''} · 返回 ${(d.text || '').length} 字`;
+    cfgTestResult.className = 'test-result ok';
+  } catch (err) {
+    cfgTestResult.textContent = '✘ ' + err.message;
+    cfgTestResult.className = 'test-result bad';
+  }
+});
+
 /* ---------- 初始化 ---------- */
 updateCount();
 checkHealth();
-if (!speechSupported()) {
-  $('#btnRecord').title = '当前浏览器不支持语音识别，建议使用 Chrome / Edge';
+if (typeof MediaRecorder === 'undefined' && !speechSupported()) {
+  $('#btnRecord').title = '当前环境不支持录音转写，建议使用最新版 Edge/Chrome，或粘贴文本、上传音频';
 }
