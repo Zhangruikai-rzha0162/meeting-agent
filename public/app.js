@@ -20,7 +20,7 @@ async function checkHealth() {
     const pill = $('#statusPill');
     if (d.configured && d.keyValid) {
       pill.className = 'status ok';
-      $('#statusText').textContent = `LLM 已连接 · ${d.model}`;
+      $('#statusText').textContent = `LLM 已连接 · ${d.model}` + (isLocalAsr() ? ' · 本地转写' : '');
     } else {
       pill.className = 'status bad';
       $('#statusText').textContent = 'LLM 未配置';
@@ -42,8 +42,20 @@ function updateCount() {
 }
 transcriptEl.addEventListener('input', updateCount);
 
+/* ---------- 本地转写模式（LocalASR，音频不出本机） ---------- */
+const LS_LOCAL = 'mm_local_asr', LS_MODEL = 'mm_local_model';
+function isLocalAsr() { return localStorage.getItem(LS_LOCAL) === '1'; }
+function localModel() { return localStorage.getItem(LS_MODEL) || 'Xenova/whisper-base'; }
+window.addEventListener('local-asr-status', e => toast('🧠 ' + e.detail, 3200));
+
+/* 统一转写入口：本地模式走本机 Whisper 大模型，否则走 ⚙️ 配置的转写 API */
+async function transcribeAny(blob, ext = 'webm') {
+  if (isLocalAsr()) return LocalASR.transcribe(blob, localModel());
+  return transcribeSegment(blob);
+}
+
 /* ---------- 实时转写 ----------
- * 主引擎：MediaRecorder 每 6 秒切一片 → POST /api/transcribe（走 ⚙️ 中配置的 STT 接口）
+ * 主引擎：MediaRecorder 每 6 秒切一片 → 本地 Whisper 或 ⚙️ 配置的 STT 接口
  * 回退：浏览器内置 Web Speech（免费，但依赖 Google 服务，国内网络通常不可用）
  */
 let recognition = null, recording = false, recSeconds = 0, recTimerId = null;
@@ -71,7 +83,7 @@ async function segmentWorker() {
     segCount++;
     if (recording) $('#interimText').textContent = `正在转写第 ${segCount} 段…`;
     try {
-      const text = await transcribeSegment(blob);
+      const text = await transcribeAny(blob);
       if (text) appendTranscript(text);
       segErrors = 0;
     } catch (err) {
@@ -79,7 +91,8 @@ async function segmentWorker() {
       if (recording) $('#interimText').textContent = `第 ${segCount} 段转写失败，已跳过`;
       if (segErrors === 1) toast('转写出错：' + err.message, 5200);
       if (segErrors >= 3 && recording) {
-        toast('连续 3 段转写失败，已停止。请在 ⚙️ 检查「转写接口」配置（推荐 Groq 免费额度）', 6500);
+        toast(isLocalAsr() ? '本地转写连续失败，已停止（可在 ⚙️ 换更小模型或改回 API 转写）'
+          : '连续 3 段转写失败，已停止。请在 ⚙️ 检查「转写接口」配置（推荐 Groq 免费额度）', 6500);
         stopRecording();
       }
     }
@@ -216,19 +229,13 @@ $('#fileAudio').addEventListener('change', async e => {
   e.target.value = '';
   if (!file) return;
   const ext = (file.name.split('.').pop() || 'webm').toLowerCase();
-  toast(`正在上传音频并由大模型转写：${file.name}…`, 4000);
+  toast(isLocalAsr() ? `本地模型转写中（首次使用需加载模型）：${file.name}…` : `正在上传音频并由大模型转写：${file.name}…`, 4000);
   try {
-    const r = await fetch('/api/transcribe', {
-      method: 'POST',
-      headers: { 'Content-Type': file.type || 'audio/webm', 'x-audio-ext': ext },
-      body: file,
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || '转写失败');
-    if (!d.text) throw new Error('转写结果为空');
-    transcriptEl.value = (transcriptEl.value ? transcriptEl.value + '\n' : '') + d.text;
+    const text = await transcribeAny(file, ext);
+    if (!text) throw new Error('转写结果为空');
+    transcriptEl.value = (transcriptEl.value ? transcriptEl.value + '\n' : '') + text;
     updateCount();
-    toast('音频转写完成 ✔');
+    toast(isLocalAsr() ? '本地转写完成 ✔（音频未离开本机）' : '音频转写完成 ✔');
   } catch (err) {
     toast('音频转写失败：' + err.message, 5000);
   }
@@ -480,6 +487,9 @@ async function openConfig() {
     $('#cfgSttBase').value = d.sttBaseUrl || '';
     $('#cfgSttKey').value = d.sttApiKeyMasked || '';
     $('#cfgSttKey').placeholder = d.sttApiKeyMasked ? '已配置（显示打码），留空保持不变' : '默认同上面的 Key，可留空';
+    // 本地转写模式
+    $('#cfgLocalAsr').checked = isLocalAsr();
+    $('#cfgLocalModel').value = localModel();
     $('#cfgEnvText').value = '';
     $('#configPath').textContent = d.envFile || '（尚未创建，将保存到 ~/.meetmind/.env）';
   } catch {
@@ -514,6 +524,9 @@ async function saveConfig({ silent = false } = {}) {
   });
   const d = await r.json();
   if (!r.ok) throw new Error(d.error || '保存失败');
+  // 本地转写偏好存浏览器本地（与外部 .env 无关）
+  localStorage.setItem(LS_LOCAL, $('#cfgLocalAsr').checked ? '1' : '0');
+  localStorage.setItem(LS_MODEL, $('#cfgLocalModel').value);
   if (!silent) {
     configModal.hidden = true;
     toast('✔ 配置已保存到外部 .env 并即时生效');
@@ -555,6 +568,21 @@ $('#btnGroqPreset').addEventListener('click', () => {
   cfgTestResult.textContent = '已填入 Groq 免费转写接口与模型，请在「转写 Key」处粘贴 Groq Key 后保存';
   cfgTestResult.className = 'test-result';
   $('#cfgSttKey').focus();
+});
+
+/* 预下载本地转写模型 */
+$('#btnLocalWarmup').addEventListener('click', async () => {
+  cfgTestResult.textContent = '准备下载本地转写模型…';
+  cfgTestResult.className = 'test-result';
+  try {
+    localStorage.setItem(LS_MODEL, $('#cfgLocalModel').value);
+    await LocalASR.ensure($('#cfgLocalModel').value);
+    cfgTestResult.textContent = '✔ 模型已就绪并缓存在本机（之后离线可用）';
+    cfgTestResult.className = 'test-result ok';
+  } catch (err) {
+    cfgTestResult.textContent = '✘ 模型加载失败：' + err.message;
+    cfgTestResult.className = 'test-result bad';
+  }
 });
 
 /* 生成 1 秒正弦波测试 WAV，验证转写接口真实可用 */
